@@ -1,0 +1,84 @@
+# 1D Advection - Space-Time Waterfall Visualization
+# Equation: ∂u/∂t + c ∂u/∂x = 0
+# c = 1, periodic boundaries, Gaussian initial pulse
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# -----------------------------
+# Simulation parameters
+# -----------------------------
+nx <- 400 # number of spatial grid points
+L <- 2.0 # domain length [0, L]
+dx <- L / nx # spatial step
+x <- seq(0, L - dx, by = dx) # spatial grid (nx points)
+
+c <- 1.0 # advection speed
+CFL <- 0.8 # Courant number (stability condition: CFL <= 1)
+dt <- CFL * dx / c # time step
+nt <- 800 # number of time steps (enough to see several periods)
+
+# -----------------------------
+# Initial condition: Gaussian pulse centered at x = 0.5
+# -----------------------------
+u0 <- exp(-200 * (x - 0.5)^2) # narrow Gaussian
+
+# Matrix to store solution at every time step: rows = time, cols = space
+u_history <- matrix(0, nrow = nt + 1, ncol = nx)
+u_history[1, ] <- u0
+
+# Current state
+u_current <- u0
+
+# -----------------------------
+# Time integration: Upwind scheme (first-order, stable for CFL <= 1)
+# -----------------------------
+for (n in 1:nt) {
+  # Upwind differencing: since c > 0, use left neighbor
+  u_new <- u_current -
+    c * (dt / dx) * (c(shift(u_current, -1, type = "lag"), u_current))
+
+  # Apply periodic boundary conditions manually
+  u_new[1] <- u_current[1] - c * (dt / dx) * (u_current[1] - u_current[nx])
+
+  # Update
+  u_current <- u_new
+
+  # Store in history
+  u_history[n + 1, ] <- u_current
+}
+
+# -----------------------------
+# Prepare data for ggplot2 (long format)
+# -----------------------------
+time_vec <- seq(0, nt * dt, by = dt)
+
+df <- data.frame(
+  x = rep(x, each = nt + 1),
+  t = rep(time_vec, times = nx),
+  u = as.vector(t(u_history)) # transpose so time goes down rows
+)
+
+# -----------------------------
+# Create the Space-Time Heatmap
+# -----------------------------
+ggplot(df, aes(x = x, y = t, fill = u)) +
+  geom_raster(interpolation = "nearest") + # or geom_tile()
+  scale_fill_viridis_c(option = "plasma", name = "Amplitude") +
+  labs(
+    title = "1D Linear Advection: Space-Time Evolution of Gaussian Pulse",
+    subtitle = paste("c =", c, "| Periodic boundaries | CFL =", CFL),
+    x = "Space (x)",
+    y = "Time (t)"
+  ) +
+  coord_fixed(ratio = 1 / c) + # this makes the slope = -c (diagonal lines at correct angle)
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "right"
+  )
+
+# Optional: save the plot
+# ggsave("advection_space_time_waterfall.png", width = 10, height = 7, dpi = 300)

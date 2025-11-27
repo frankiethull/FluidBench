@@ -1,0 +1,178 @@
+# ========================================================
+# 2D Shallow Water Equations — "Pond Ripple" with rayshader
+# Photorealistic 3D water surface rendering
+# ========================================================
+
+library(tidyverse)
+library(rayshader)
+library(rayrender)
+library(progress)
+
+# -----------------------------
+# Physical & numerical parameters
+# -----------------------------
+nx <- 300
+ny <- 300
+dx <- dy <- 1.0
+dt <- 0.15 # tuned for stability
+g <- 9.81 # gravity
+
+# Domain: 300×300 units
+x <- seq(0, nx - 1) * dx
+y <- seq(0, ny - 1) * dy
+X <- matrix(x, nx, ny)
+Y <- matrix(y, nx, ny, byrow = TRUE)
+
+# -----------------------------
+# Initial condition: flat water + Gaussian drop in the center
+# -----------------------------
+h <- matrix(5.0, nx, ny) # mean water depth = 5
+hu <- matrix(0, nx, ny) # momentum x
+hv <- matrix(0, nx, ny) # momentum y
+
+# Gaussian drop (like a water droplet impact)
+cx <- nx / 2
+cy <- ny / 2
+amp <- 2.0
+sigma <- 12
+h <- h + amp * exp(-((X - cx)^2 + (Y - cy)^2) / (2 * sigma^2))
+
+# Store previous step for Leapfrog
+h_prev <- h
+hu_prev <- hu
+hv_prev <- hv
+
+# -----------------------------
+# Leapfrog time integration (2nd-order accurate, low dispersion)
+# -----------------------------
+steps <- 800
+pb <- progress_bar$new(total = steps)
+
+cat("Running 2D Shallow Water simulation (Leapfrog)...\n")
+
+for (step in 1:steps) {
+  pb$tick()
+
+  # ---- Spatial derivatives (central differences) ----
+  dh_dx <- 0.5 *
+    (cbind(h[, -1], h[, ncol(h)]) - cbind(h[, 1], h[, -ncol(h)])) /
+    dx
+  dh_dy <- 0.5 *
+    (rbind(h[-1, ], h[nrow(h), ]) - rbind(h[1, ], h[-nrow(h), ])) /
+    dy
+
+  dhu_dx <- 0.5 *
+    (cbind(hu[, -1], hu[, ncol(hu)]) - cbind(hu[, 1], hu[, -ncol(hu)])) /
+    dx
+  dhv_dy <- 0.5 *
+    (rbind(hv[-1, ], hv[nrow(hv), ]) - rbind(hv[1, ], hv[-nrow(hv), ])) /
+    dy
+
+  # Momentum advection terms (simplified, non-conservative form)
+  u <- hu / (h + 1e-8)
+  v <- hv / (h + 1e-8)
+
+  duu_dx <- u * dhu_dx
+  duv_dy <- v *
+    0.5 *
+    (hv[-1, ] + hv[-nrow(hv), ] - hv[1, ] - hv[nrow(hv), ]) /
+    dy
+  # Approximate cross terms minimally
+
+  # ---- Update rules (Leapfrog) ----
+  if (step == 1) {
+    # First step: Forward Euler
+    h_new <- h + dt * (-dhu_dx - dhv_dy)
+    hu_new <- hu + dt * (-u * dhu_dx - v * dhu_dx - g * h * dh_dx)
+    hv_new <- hv + dt * (-u * dhv_dy - v * dhv_dy - g * h * dh_dy)
+  } else {
+    # Leapfrog: use previous step
+    h_new <- h_prev + 2 * dt * (-dhu_dx - dhv_dy)
+    hu_new <- hu_prev + 2 * dt * (-u * dhu_dx - g * h * dh_dx)
+    hv_new <- hv_prev + 2 * dt * (-v * dhv_dy - g * h * dh_dy)
+  }
+
+  # Reflective (wall) boundaries — zero normal velocity
+  hu_new[c(1, nx), ] <- 0
+  hv_new[, c(1, ny)] <- 0
+  h_new[c(1, nx), ] <- h_new[c(2, nx - 1), ]
+  h_new[, c(1, ny)] <- h_new[, c(2, ny - 1)]
+
+  # Update for next step
+  h_prev <- h
+  hu_prev <- hu
+  hv_prev <- hv
+
+  h <- h_new
+  hu <- hu_new
+  hv <- hv_new
+}
+
+cat("Simulation complete!\n")
+
+# -----------------------------
+# Prepare height matrix for rayshader
+# Water surface elevation = h (total height)
+# -----------------------------
+z <- t(h) # rayshader expects rows = y, cols = x
+zscale <- 8 # exaggerate vertical scale for visual effect
+
+# -----------------------------
+# Photorealistic 3D rendering with rayshader + rayrender
+# -----------------------------
+z %>%
+  height_shade(texture = "white") %>%
+  add_overlay(
+    sphere_shade(
+      z,
+      texture = "desert",
+      zscale = zscale,
+      color = "deepskyblue4"
+    ),
+    alphalayer = 0.9
+  ) %>%
+  add_overlay(
+    sphere_shade(z, texture = "imhof1", zscale = zscale),
+    alphalayer = 0.3
+  ) %>%
+  add_water(waterdepth = 0.1, watercolor = "#112255", water_alpha = 0.7) %>%
+  plot_3d(
+    z,
+    zscale = zscale,
+    windowsize = c(1200, 1000),
+    water = TRUE,
+    waterdepth = 0.3,
+    watercolor = "#003366",
+    wateralpha = 0.8,
+    theta = -35,
+    phi = 40,
+    zoom = 0.7,
+    fov = 60
+  )
+
+# Add dramatic lighting
+render_camera(theta = -30, phi = 50, zoom = 0.75, fov = 60)
+
+# High-quality raytraced render with reflections and caustics
+render_highquality(
+  filename = "pond_ripple_photorealistic.png",
+  light = TRUE,
+  lightdirection = c(135, 45),
+  lightintensity = 600,
+  lightaltitude = 60,
+  samples = 400,
+  clamp_value = 5,
+  background = "lightblue",
+  preview = FALSE,
+  width = 1600,
+  height = 1400
+)
+
+# Also render a quick interactive version
+render_snapshot(
+  filename = "pond_ripple_snapshot.png",
+  title_text = "Pond Ripple — 2D Shallow Water Equations"
+)
+
+cat("\nPhotorealistic render saved as 'pond_ripple_photorealistic.png'\n")
+cat("Quick snapshot saved as 'pond_ripple_snapshot.png'\n")

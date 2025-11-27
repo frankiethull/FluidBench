@@ -1,0 +1,204 @@
+# ========================================================
+# 2D Lattice Boltzmann Method (D2Q9) - Von Kármán Vortex Street
+# R implementation with full vectorization + gganimate
+# ========================================================
+
+library(tidyverse)
+library(gganimate)
+library(viridis)
+library(progress) # install.packages("progress")
+
+# ------------------------------
+# D2Q9 Velocity Set
+# ------------------------------
+c_i <- matrix(
+  c(
+    0,
+    1,
+    0,
+    -1,
+    0,
+    1,
+    -1,
+    -1,
+    1, # ex
+    0,
+    0,
+    1,
+    0,
+    -1,
+    1,
+    1,
+    -1,
+    -1 # ey
+  ),
+  nrow = 2
+)
+
+w_i <- c(4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36)
+opp <- c(1, 4, 5, 2, 3, 8, 9, 6, 7) # opposite directions
+
+# ------------------------------
+# Simulation Parameters
+# ------------------------------
+nx <- 400
+ny <- 80
+ob_x <- 60
+ob_y <- 40
+ob_r <- 8 # cylinder center and radius
+Re <- 150 # Reynolds number
+u_inlet <- 0.08 # inlet velocity
+nu <- u_inlet * (2 * ob_r) / Re # kinematic viscosity
+omega <- 1 / (3 * nu + 0.5) # relaxation rate (BGK)
+
+steps <- 4000
+save_every <- 20
+n_frames <- steps %/% save_every
+
+# Initialize distribution functions
+f <- array(0, dim = c(nx, ny, 9))
+feq <- array(0, dim = c(nx, ny, 9))
+
+# Equilibrium initial condition (uniform flow)
+rho <- matrix(1, nx, ny)
+ux <- matrix(u_inlet, nx, ny)
+uy <- matrix(0, nx, ny)
+
+for (k in 1:9) {
+  cu <- c_i[1, k] * ux + c_i[2, k] * uy
+  feq[,, k] <- w_i[k] * rho * (1 + 3 * cu + 4.5 * cu^2 - 1.5 * (ux^2 + uy^2))
+}
+f <- feq
+
+# Obstacle mask (circle)
+xgrid <- matrix(1:nx, nx, ny, byrow = FALSE)
+ygrid <- matrix(1:ny, nx, ny, byrow = TRUE)
+obstacle <- (xgrid - ob_x)^2 + (ygrid - ob_y)^2 <= ob_r^2
+
+# Precompute neighbor indices for streaming (periodic in y, open in x)
+stream_xp <- function(arr) cbind(arr[-1, , ], arr[nx, , ]) # shift right
+stream_xm <- function(arr) cbind(arr[-nx, , ], arr[1, , ]) # shift left
+stream_yp <- function(arr) rbind(arr[, -1, ], arr[, 1, ]) # shift up
+stream_ym <- function(arr) rbind(arr[, -ny, ], arr[, ny, ]) # shift down
+
+# Storage for animation frames
+frames <- vector("list", n_frames)
+
+pb <- progress_bar$new(total = steps)
+
+cat("Running LBM simulation for Von Kármán vortex street...\n")
+
+for (step in 1:steps) {
+  pb$tick()
+
+  # ------------------ Streaming (vectorized) ------------------
+  f[,, 1] <- f[,, 1] # rest particle stays
+
+  f[,, 2] <- stream_xp(f[,, 2]) # right
+  f[,, 3] <- stream_yp(f[,, 3]) # up
+  f[,, 4] <- stream_xm(f[,, 4]) # left
+  f[,, 5] <- stream_ym(f[,, 5]) # down
+  f[,, 6] <- stream_xp(stream_yp(f[,, 6]))
+  f[,, 7] <- stream_xm(stream_yp(f[,, 7]))
+  f[,, 8] <- stream_xm(stream_ym(f[,, 8]))
+  f[,, 9] <- stream_xp(stream_ym(f[,, 9]))
+
+  # Bounce-back on cylinder (no-slip)
+  for (k in 1:9) {
+    f[obstacle, k] <- f[obstacle, opp[k]]
+  }
+
+  # ------------------ Macroscopic variables ------------------
+  rho <- rowSums(f, dims = 2)
+  ux <- (f[,, 2] + f[,, 6] + f[,, 9] - (f[,, 4] + f[,, 7] + f[,, 8])) / rho
+  uy <- (f[,, 3] + f[,, 6] + f[,, 7] - (f[,, 5] + f[,, 8] + f[,, 9])) / rho
+
+  # Zou/He velocity inlet (left boundary)
+  ux[1, ] <- u_inlet
+  uy[1, ] <- 0
+  rho[1, ] <- 1 /
+    (1 - ux[1, ]) *
+    (rowSums(f[1, , c(1, 3, 5)], dims = 1) +
+      2 * rowSums(f[1, , c(4, 7, 8)], dims = 1))
+
+  # Outflow: simple extrapolation (right boundary)
+  ux[nx, ] <- 2 * ux[nx - 1, ] - ux[nx - 2, ]
+  uy[nx, ] <- 2 * uy[nx - 1, ] - uy[nx - 2, ]
+  rho[nx, ] <- 2 * rho[nx - 1, ] - rho[nx - 2, ]
+
+  # ------------------ Equilibrium & Collision ------------------
+  for (k in 1:9) {
+    cu <- c_i[1, k] * ux + c_i[2, k] * uy
+    u2 <- ux^2 + uy^2
+    feq[,, k] <- w_i[k] * rho * (1 + 3 * cu + 4.5 * cu^2 - 1.5 * u2)
+    f[,, k] <- f[,, k] * (1 - omega) + feq[,, k] * omega
+  }
+
+  # ------------------ Save frame for animation ------------------
+  if (step %% save_every == 0) {
+    # Compute vorticity: ω = ∂vy/∂x - ∂vx/∂y
+    vort <- matrix(0, nx, ny)
+    vort[2:(nx - 1), 2:(ny - 1)] <- ((uy[3:nx, 2:(ny - 1)] -
+      uy[1:(nx - 2), 2:(ny - 1)]) /
+      2 -
+      (ux[2:(nx - 1), 3:ny] - ux[2:(nx - 1), 1:(ny - 2)]) / 2)
+
+    frame_id <- step %/% save_every
+    df <- expand.grid(x = 1:nx, y = 1:ny)
+    df$vort <- as.vector(t(vort))
+    df$frame <- frame_id
+    df$obstacle <- as.vector(t(obstacle))
+
+    frames[[frame_id]] <- df
+  }
+}
+
+# Combine all frames
+anim_data <- bind_rows(frames)
+
+# Add cylinder outline
+cylinder <- data.frame(
+  x = ob_x + ob_r * cos(seq(0, 2 * pi, length.out = 100)),
+  y = ob_y + ob_r * sin(seq(0, 2 * pi, length.out = 100))
+)
+
+# ------------------ Create animated GIF with gganimate ------------------
+p <- ggplot(anim_data, aes(x, y, fill = vort)) +
+  geom_raster(interpolate = TRUE) +
+  geom_contour(
+    aes(z = as.matrix(matrix(obstacle, nx, ny))),
+    breaks = 0.5,
+    color = "white",
+    size = 1.2
+  ) +
+  geom_path(data = cylinder, aes(x, y), color = "white", size = 1.5) +
+  scale_fill_gradientn(
+    colors = c("blue4", "blue", "white", "red", "red4"),
+    values = scales::rescale(c(-1, -0.5, 0, 0.5, 1)),
+    limits = c(-0.015, 0.015),
+    name = "Vorticity"
+  ) +
+  labs(
+    title = "Von Kármán Vortex Street (Re ≈ {round(Re)})",
+    subtitle = "Lattice Boltzmann Method (D2Q9) | Frame: {frame}"
+  ) +
+  coord_fixed() +
+  theme_void() +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 16, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12, hjust = 0.5)
+  ) +
+  transition_manual(frame)
+
+anim <- animate(
+  p,
+  nframes = n_frames,
+  fps = 20,
+  width = 1000,
+  height = 250,
+  renderer = gifski_renderer("von_karman_vortex_street.gif")
+)
+
+print("Animation saved as 'von_karman_vortex_street.gif'")
+anim
