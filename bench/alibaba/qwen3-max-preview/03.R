@@ -1,0 +1,186 @@
+# Turing Pattern Simulation: Gray-Scott Reaction-Diffusion Model
+# "Coral" preset — produces organic, coral-like patterns
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# ----------------------------
+# Model Parameters (Coral Preset)
+# ----------------------------
+Du <- 0.16 # Diffusion rate of U
+Dv <- 0.08 # Diffusion rate of V
+F <- 0.035 # Feed rate
+k <- 0.060 # Kill rate
+
+# Grid setup
+nx <- 100
+ny <- 100
+iterations <- 2000
+
+# Discretization
+dx <- 1.0
+dy <- 1.0
+dt <- 1.0 # Unit time step (stable for these parameters with small enough dt)
+
+# Stability note: For explicit diffusion, need dt < dx^2/(4*max(Du,Dv)) ≈ 1.56 → dt=1.0 is safe.
+
+# ----------------------------
+# Initialize Concentration Matrices
+# ----------------------------
+U <- matrix(1.0, nrow = ny, ncol = nx) # U = 1 everywhere
+V <- matrix(0.0, nrow = ny, ncol = nx) # V = 0 everywhere
+
+# Add noise in center 10x10 square: set V=1 + small random perturbation
+center_x <- floor(nx / 2)
+center_y <- floor(ny / 2)
+size <- 5 # half-size so total 10x10
+
+# Define center region
+start_x <- center_x - size + 1
+end_x <- center_x + size
+start_y <- center_y - size + 1
+end_y <- center_y + size
+
+# Add noise: V = 1 + small random variation to break symmetry
+set.seed(123) # for reproducibility
+V[start_y:end_y, start_x:end_x] <- 1.0 +
+  runif((end_y - start_y + 1) * (end_x - start_x + 1), -0.1, 0.1)
+
+# ----------------------------
+# Helper: Laplacian using 5-point stencil (with periodic boundaries)
+# ----------------------------
+laplacian <- function(A) {
+  # Create periodic boundaries by wrapping edges
+  A_padded <- A
+  # We'll compute interior points with neighbors, and handle edges via modulo indexing
+
+  lap <- matrix(0, nrow = ny, ncol = nx)
+
+  # Interior points
+  for (i in 2:(ny - 1)) {
+    for (j in 2:(nx - 1)) {
+      lap[i, j] <- (A[i + 1, j] +
+        A[i - 1, j] +
+        A[i, j + 1] +
+        A[i, j - 1] -
+        4 * A[i, j]) /
+        (dx^2)
+    }
+  }
+
+  # Top and bottom rows (periodic in y)
+  for (j in 2:(nx - 1)) {
+    lap[1, j] <- (A[2, j] +
+      A[ny, j] +
+      A[1, j + 1] +
+      A[1, j - 1] -
+      4 * A[1, j]) /
+      (dx^2)
+    lap[ny, j] <- (A[1, j] +
+      A[ny - 1, j] +
+      A[ny, j + 1] +
+      A[ny, j - 1] -
+      4 * A[ny, j]) /
+      (dx^2)
+  }
+
+  # Left and right columns (periodic in x)
+  for (i in 2:(ny - 1)) {
+    lap[i, 1] <- (A[i + 1, 1] +
+      A[i - 1, 1] +
+      A[i, 2] +
+      A[i, nx] -
+      4 * A[i, 1]) /
+      (dx^2)
+    lap[i, nx] <- (A[i + 1, nx] +
+      A[i - 1, nx] +
+      A[i, 1] +
+      A[i, nx - 1] -
+      4 * A[i, nx]) /
+      (dx^2)
+  }
+
+  # Corners
+  lap[1, 1] <- (A[2, 1] + A[ny, 1] + A[1, 2] + A[1, nx] - 4 * A[1, 1]) / (dx^2)
+  lap[1, nx] <- (A[2, nx] + A[ny, nx] + A[1, 1] + A[1, nx - 1] - 4 * A[1, nx]) /
+    (dx^2)
+  lap[ny, 1] <- (A[1, 1] + A[ny - 1, 1] + A[ny, 2] + A[ny, nx] - 4 * A[ny, 1]) /
+    (dx^2)
+  lap[ny, nx] <- (A[1, nx] +
+    A[ny - 1, nx] +
+    A[ny, 1] +
+    A[ny, nx - 1] -
+    4 * A[ny, nx]) /
+    (dx^2)
+
+  return(lap)
+}
+
+# ----------------------------
+# Main Simulation Loop
+# ----------------------------
+cat("Simulating Gray-Scott reaction-diffusion system...\n")
+
+for (step in 1:iterations) {
+  if (step %% 200 == 0) {
+    cat("Step", step, "of", iterations, "\n")
+  }
+
+  # Compute Laplacians
+  lap_U <- laplacian(U)
+  lap_V <- laplacian(V)
+
+  # Compute reaction terms
+  UV2 <- U * V * V
+
+  # Update using forward Euler
+  dU <- Du * lap_U - UV2 + F * (1 - U)
+  dV <- Dv * lap_V + UV2 - (F + k) * V
+
+  U <- U + dt * dU
+  V <- V + dt * dV
+
+  # Optional: Clamp values to [0,1] for numerical stability (not strictly physical but helps)
+  U <- pmax(0, pmin(1, U))
+  V <- pmax(0, pmin(1, V))
+}
+
+cat("Simulation complete.\n")
+
+# ----------------------------
+# Prepare Data for Plotting
+# ----------------------------
+# Melt V matrix into long format for ggplot2
+df <- data.frame(
+  x = rep(1:nx, times = ny),
+  y = rep(1:ny, each = nx),
+  V = as.vector(V)
+)
+
+# ----------------------------
+# Plot Final State: Concentration of V
+# ----------------------------
+p <- ggplot(df, aes(x = x, y = y, fill = V)) +
+  geom_raster() +
+  scale_fill_viridis_c(option = "plasma", name = "Concentration V") +
+  labs(
+    title = "Turing Pattern: Gray-Scott Model ('Coral' Preset)",
+    subtitle = paste("Iterations:", iterations, "| F =", F, ", k =", k),
+    x = "X",
+    y = "Y"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5, size = 11),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "right"
+  )
+
+print(p)
+
+# Optional: Save high-res output
+# ggsave("turing_pattern_coral.png", plot = p, width = 10, height = 10, dpi = 300)

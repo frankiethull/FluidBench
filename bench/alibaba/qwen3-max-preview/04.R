@@ -1,0 +1,308 @@
+# Pond Ripple Simulation: 2D Shallow Water Equations with rayshader 3D Rendering
+
+library(rayshader)
+library(ggplot2)
+
+# ----------------------------
+# Physics & Grid Setup
+# ----------------------------
+
+# Grid dimensions
+nx <- 100
+ny <- 100
+Lx <- 10.0 # domain size in meters
+Ly <- 10.0
+dx <- Lx / (nx - 1)
+dy <- Ly / (ny - 1)
+
+# Time stepping
+dt <- 0.01 # time step (CFL-limited)
+gravity <- 9.81 # gravitational acceleration (m/s^2)
+n_steps <- 500 # run until ripples reach edge
+
+# Initialize fields
+h <- matrix(1.0, nrow = ny, ncol = nx) # water height (rest depth = 1m)
+hu <- matrix(0.0, nrow = ny, ncol = nx) # x-momentum (h * u)
+hv <- matrix(0.0, nrow = ny, ncol = nx) # y-momentum (h * v)
+
+# Add initial Gaussian drop at center
+cx <- nx %/% 2
+cy <- ny %/% 2
+sigma <- 3.0 # width of drop
+
+for (i in 1:ny) {
+  for (j in 1:nx) {
+    dist_sq <- ((j - cx) * dx)^2 + ((i - cy) * dy)^2
+    h[i, j] <- h[i, j] - 0.2 * exp(-dist_sq / (2 * sigma^2))
+  }
+}
+
+# Store initial state for boundary conditions
+h0 <- h
+
+# ----------------------------
+# Lax-Wendroff Scheme for 2D Shallow Water Equations
+# ----------------------------
+
+cat("Simulating pond ripple with Lax-Wendroff scheme...\n")
+
+for (step in 1:n_steps) {
+  if (step %% 50 == 0) {
+    cat("Step", step, "of", n_steps, "\n")
+  }
+
+  # Create temporary arrays to store updated values
+  h_new <- h
+  hu_new <- hu
+  hv_new <- hv
+
+  # Interior points only (leave boundaries fixed for simplicity)
+  for (i in 2:(ny - 1)) {
+    for (j in 2:(nx - 1)) {
+      # Current cell values
+      h_ij <- h[i, j]
+      hu_ij <- hu[i, j]
+      hv_ij <- hv[i, j]
+
+      # Velocities
+      u_ij <- ifelse(h_ij > 1e-8, hu_ij / h_ij, 0)
+      v_ij <- ifelse(h_ij > 1e-8, hv_ij / h_ij, 0)
+
+      # Neighbors
+      h_ip1 <- h[i + 1, j]
+      h_im1 <- h[i - 1, j]
+      h_jp1 <- h[i, j + 1]
+      h_jm1 <- h[i, j - 1]
+      hu_ip1 <- hu[i + 1, j]
+      hu_im1 <- hu[i - 1, j]
+      hu_jp1 <- hu[i, j + 1]
+      hu_jm1 <- hu[i, j - 1]
+      hv_ip1 <- hv[i + 1, j]
+      hv_im1 <- hv[i - 1, j]
+      hv_jp1 <- hv[i, j + 1]
+      hv_jm1 <- hv[i, j - 1]
+
+      # First-order fluxes (Euler step predictors)
+      # ∂h/∂t = -∂(hu)/∂x - ∂(hv)/∂y
+      dh_dt <- -((hu_jp1 - hu_jm1) / (2 * dx) + (hv_ip1 - hv_im1) / (2 * dy))
+
+      # ∂(hu)/∂t = -∂(hu²/h + ½gh²)/∂x - ∂(huv/h)/∂y
+      dhu_dt <- -(((hu_jp1^2 / h_jp1 + 0.5 * gravity * h_jp1^2) -
+        (hu_jm1^2 / h_jm1 + 0.5 * gravity * h_jm1^2)) /
+        (2 * dx) +
+        ((hu_ip1 * hv_ip1 / h_ip1) - (hu_im1 * hv_im1 / h_im1)) / (2 * dy))
+
+      # ∂(hv)/∂t = -∂(huv/h)/∂x - ∂(hv²/h + ½gh²)/∂y
+      dhv_dt <- -(((hu_jp1 * hv_jp1 / h_jp1) - (hu_jm1 * hv_jm1 / h_jm1)) /
+        (2 * dx) +
+        ((hv_ip1^2 / h_ip1 + 0.5 * gravity * h_ip1^2) -
+          (hv_im1^2 / h_im1 + 0.5 * gravity * h_im1^2)) /
+          (2 * dy))
+
+      # Lax-Wendroff corrector: half-step values
+      h_half_xp <- 0.5 *
+        (h_ij + h[i, j + 1]) -
+        0.5 * dt / dx * (hu[i, j + 1] - hu_ij)
+      h_half_xm <- 0.5 *
+        (h_ij + h[i, j - 1]) -
+        0.5 * dt / dx * (hu_ij - hu[i, j - 1])
+      h_half_yp <- 0.5 *
+        (h_ij + h[i + 1, j]) -
+        0.5 * dt / dy * (hv[i + 1, j] - hv_ij)
+      h_half_ym <- 0.5 *
+        (h_ij + h[i - 1, j]) -
+        0.5 * dt / dy * (hv_ij - hv[i - 1, j])
+
+      hu_half_xp <- 0.5 *
+        (hu_ij + hu[i, j + 1]) -
+        0.5 *
+          dt /
+          dx *
+          ((hu[i, j + 1]^2 / h[i, j + 1] + 0.5 * gravity * h[i, j + 1]^2) -
+            (hu_ij^2 / h_ij + 0.5 * gravity * h_ij^2))
+      hu_half_xm <- 0.5 *
+        (hu_ij + hu[i, j - 1]) -
+        0.5 *
+          dt /
+          dx *
+          ((hu_ij^2 / h_ij + 0.5 * gravity * h_ij^2) -
+            (hu[i, j - 1]^2 / h[i, j - 1] + 0.5 * gravity * h[i, j - 1]^2))
+      hu_half_yp <- 0.5 *
+        (hu_ij + hu[i + 1, j]) -
+        0.5 *
+          dt /
+          dy *
+          ((hu[i + 1, j] * hv[i + 1, j] / h[i + 1, j]) - (hu_ij * hv_ij / h_ij))
+      hu_half_ym <- 0.5 *
+        (hu_ij + hu[i - 1, j]) -
+        0.5 *
+          dt /
+          dy *
+          ((hu_ij * hv_ij / h_ij) - (hu[i - 1, j] * hv[i - 1, j] / h[i - 1, j]))
+
+      hv_half_xp <- 0.5 *
+        (hv_ij + hv[i, j + 1]) -
+        0.5 *
+          dt /
+          dx *
+          ((hu[i, j + 1] * hv[i, j + 1] / h[i, j + 1]) - (hu_ij * hv_ij / h_ij))
+      hv_half_xm <- 0.5 *
+        (hv_ij + hv[i, j - 1]) -
+        0.5 *
+          dt /
+          dx *
+          ((hu_ij * hv_ij / h_ij) - (hu[i, j - 1] * hv[i, j - 1] / h[i, j - 1]))
+      hv_half_yp <- 0.5 *
+        (hv_ij + hv[i + 1, j]) -
+        0.5 *
+          dt /
+          dy *
+          ((hv[i + 1, j]^2 / h[i + 1, j] + 0.5 * gravity * h[i + 1, j]^2) -
+            (hv_ij^2 / h_ij + 0.5 * gravity * h_ij^2))
+      hv_half_ym <- 0.5 *
+        (hv_ij + hv[i - 1, j]) -
+        0.5 *
+          dt /
+          dy *
+          ((hv_ij^2 / h_ij + 0.5 * gravity * h_ij^2) -
+            (hv[i - 1, j]^2 / h[i - 1, j] + 0.5 * gravity * h[i - 1, j]^2))
+
+      # Flux differences using half-step values
+      F_h_x <- (hu_half_xp - hu_half_xm) / dx
+      F_h_y <- (hv_half_yp - hv_half_ym) / dy
+
+      F_hu_x <- ((hu_half_xp^2 /
+        pmax(1e-8, h_half_xp) +
+        0.5 * gravity * h_half_xp^2) -
+        (hu_half_xm^2 / pmax(1e-8, h_half_xm) + 0.5 * gravity * h_half_xm^2)) /
+        dx
+
+      F_hu_y <- ((hu_half_yp * hv_half_yp / pmax(1e-8, h_half_yp)) -
+        (hu_half_ym * hv_half_ym / pmax(1e-8, h_half_ym))) /
+        dy
+
+      F_hv_x <- ((hu_half_xp * hv_half_xp / pmax(1e-8, h_half_xp)) -
+        (hu_half_xm * hv_half_xm / pmax(1e-8, h_half_xm))) /
+        dx
+
+      F_hv_y <- ((hv_half_yp^2 /
+        pmax(1e-8, h_half_yp) +
+        0.5 * gravity * h_half_yp^2) -
+        (hv_half_ym^2 / pmax(1e-8, h_half_ym) + 0.5 * gravity * h_half_ym^2)) /
+        dy
+
+      # Update with Lax-Wendroff formula
+      h_new[i, j] <- h_ij - dt * (F_h_x + F_h_y)
+      hu_new[i, j] <- hu_ij - dt * (F_hu_x + F_hu_y)
+      hv_new[i, j] <- hv_ij - dt * (F_hv_x + F_hv_y)
+    }
+  }
+
+  # Apply boundary conditions: fixed height at edges (non-reflective is complex, so we fix)
+  h_new[1, ] <- h0[1, ]
+  h_new[ny, ] <- h0[ny, ]
+  h_new[, 1] <- h0[, 1]
+  h_new[, nx] <- h0[, nx]
+
+  # Zero momentum at boundaries (absorbing-ish)
+  hu_new[1, ] <- 0
+  hu_new[ny, ] <- 0
+  hu_new[, 1] <- 0
+  hu_new[, nx] <- 0
+  hv_new[1, ] <- 0
+  hv_new[ny, ] <- 0
+  hv_new[, 1] <- 0
+  hv_new[, nx] <- 0
+
+  # Update fields
+  h <- h_new
+  hu <- hu_new
+  hv <- hv_new
+}
+
+cat("Simulation complete. Rendering 3D ripple...\n")
+
+# ----------------------------
+# Prepare Height Matrix for rayshader
+# ----------------------------
+
+# Flip y-axis for proper orientation in rayshader (which expects row 1 = bottom)
+h_plot <- h[ny:1, ]
+
+# Optional: Scale height for better visual effect
+h_plot <- h_plot - mean(h_plot) # center around zero
+h_plot <- h_plot * 2 # amplify vertical scale for dramatic lighting
+
+# ----------------------------
+# Create Base ggplot for rayshader
+# ----------------------------
+
+# Create coordinate grids
+x_coords <- seq(0, Lx, length.out = nx)
+y_coords <- seq(0, Ly, length.out = ny)
+df <- expand.grid(x = x_coords, y = y_coords)
+df$z <- as.vector(h_plot)
+
+# Create base plot
+p <- ggplot(df, aes(x = x, y = y, z = z)) +
+  geom_raster(aes(fill = z)) +
+  scale_fill_gradient2(
+    low = "navyblue",
+    mid = "lightblue",
+    high = "white",
+    midpoint = 0,
+    name = "Height"
+  ) +
+  labs(title = "Pond Ripple: 2D Shallow Water Simulation") +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    panel.grid = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "none"
+  )
+
+# ----------------------------
+# Render with rayshader
+# ----------------------------
+
+# Convert to 3D matrix
+height_matrix <- matrix(df$z, nrow = ny, ncol = nx, byrow = FALSE)
+
+# Rayshader rendering
+rayshader::plot_3d(
+  height_matrix = height_matrix,
+  width = Lx,
+  height = Ly,
+  solid = TRUE,
+  shadow = TRUE,
+  solidcolor = "lightblue",
+  background = "white",
+  zscale = 0.5, # vertical exaggeration
+  phi = 45, # viewing angle elevation
+  theta = 45, # viewing angle azimuth
+  zoom = 0.8,
+  fov = 70,
+  windowsize = c(1000, 800)
+)
+
+# Add water-like material and lighting
+render_highquality(
+  filename = "pond_ripple_3d.png",
+  light = TRUE,
+  lightdirection = c(45, 0), # sun from top-left
+  lightintensity = 1000,
+  lightaltitude = 60,
+  samples = 256, # higher = smoother
+  ambient_light = FALSE,
+  environment_light = FALSE,
+  parallel = TRUE,
+  width = 1000,
+  height = 800
+)
+
+# Optional: Interactive 3D plot (if running locally)
+# render_snapshot(clear = TRUE)
+
+cat("3D render saved as 'pond_ripple_3d.png'\n")
