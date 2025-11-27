@@ -1,0 +1,254 @@
+############################################################
+## Von Kármán Vortex Street with D2Q9 Lattice Boltzmann  ##
+##  - 80 x 40 grid, cylinder at (20,20), R = 3           ##
+##  - Flow from left to right                            ##
+##  - Animated vorticity field (red = clockwise,         ##
+##    blue = counter-clockwise)                          ##
+############################################################
+
+library(ggplot2)
+library(gganimate)
+library(gifski)
+library(transformr)
+
+## ----------------------------
+## Lattice & physical parameters
+## ----------------------------
+nx <- 80
+ny <- 40
+
+# Cylinder position and radius
+cx <- 20
+cy <- 20
+radius <- 3
+
+# Inlet velocity and viscosity (lattice units)
+u_in <- 0.08 # inlet horizontal velocity
+nu <- 0.006 # kinematic viscosity
+tau <- 3 * nu + 0.5 # relaxation time (BGK)
+
+# D2Q9 discrete velocities and weights
+ex <- c(0, 1, 0, -1, 0, 1, -1, -1, 1)
+ey <- c(0, 0, 1, 0, -1, 1, 1, -1, -1)
+w <- c(4 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 9, 1 / 36, 1 / 36, 1 / 36, 1 / 36)
+
+# Opposite directions (for bounce-back)
+opp <- c(1, 4, 5, 2, 3, 8, 9, 6, 7)
+
+## ----------------------------
+## Geometry: obstacle and walls
+## ----------------------------
+# Create coordinate matrices
+x_mat <- matrix(rep(1:nx, each = ny), nrow = nx, ncol = ny)
+y_mat <- matrix(rep(1:ny, times = nx), nrow = nx, ncol = ny)
+
+# Circular obstacle
+obstacle <- (x_mat - cx)^2 + (y_mat - cy)^2 <= radius^2
+
+# No-slip walls at top and bottom
+top_wall <- (y_mat == ny)
+bottom_wall <- (y_mat == 1)
+
+solid <- obstacle | top_wall | bottom_wall
+
+## ----------------------------
+## Initial conditions
+## ----------------------------
+rho <- matrix(1, nx, ny) # density
+ux <- matrix(0, nx, ny) # x-velocity
+uy <- matrix(0, nx, ny) # y-velocity
+
+# Set inlet velocity (left boundary, excluding walls)
+ux[1, 2:(ny - 1)] <- u_in
+
+# Set solid (obstacle + walls) velocity to zero
+ux[solid] <- 0
+uy[solid] <- 0
+
+# Allocate distribution functions f(x,y,q)
+f <- array(0, dim = c(nx, ny, 9))
+feq <- array(0, dim = c(nx, ny, 9))
+
+# Helper: compute equilibrium distributions given rho, ux, uy
+compute_feq <- function(rho, ux, uy) {
+  feq <- array(0, dim = c(nx, ny, 9))
+  u2 <- ux^2 + uy^2
+  for (q in 1:9) {
+    cu <- ex[q] * ux + ey[q] * uy
+    feq[,, q] <- w[q] * rho * (1 + 3 * cu + 4.5 * cu^2 - 1.5 * u2)
+  }
+  feq
+}
+
+# Initialize distributions to equilibrium
+feq <- compute_feq(rho, ux, uy)
+f <- feq
+
+## ----------------------------
+## Time-stepping parameters
+## ----------------------------
+nsteps <- 3000 # total steps
+start_save <- 800 # start recording after some spin-up
+save_every <- 10 # record every Nth step
+nframes <- floor((nsteps - start_save) / save_every) + 1
+
+omega_frames <- array(NA_real_, dim = c(nx, ny, nframes))
+frame_id <- 0
+
+## ----------------------------
+## Main LBM loop
+## ----------------------------
+for (step in 1:nsteps) {
+  # --- Collision step ---
+
+  # Macroscopic fields
+  rho <- apply(f, c(1, 2), sum)
+  ux <- (f[,, 2] + f[,, 6] + f[,, 9] - (f[,, 4] + f[,, 7] + f[,, 8])) / rho
+  uy <- (f[,, 3] + f[,, 6] + f[,, 7] - (f[,, 5] + f[,, 8] + f[,, 9])) / rho
+
+  # Enforce no-slip (u = 0) at solid nodes
+  ux[solid] <- 0
+  uy[solid] <- 0
+
+  # Compute equilibrium and relax towards it (BGK collision)
+  feq <- compute_feq(rho, ux, uy)
+  f <- f + (feq - f) / tau
+
+  # --- Streaming step (vectorized over x,y; loop only over directions) ---
+  f_stream <- array(0, dim = c(nx, ny, 9))
+
+  for (q in 1:9) {
+    dx <- ex[q]
+    dy <- ey[q]
+
+    if (dx == 0 && dy == 0) {
+      # Rest population: no streaming
+      f_stream[,, q] <- f[,, q]
+    } else if (dx == 1 && dy == 0) {
+      f_stream[2:nx, , q] <- f[1:(nx - 1), , q]
+    } else if (dx == -1 && dy == 0) {
+      f_stream[1:(nx - 1), , q] <- f[2:nx, , q]
+    } else if (dx == 0 && dy == 1) {
+      f_stream[, 2:ny, q] <- f[, 1:(ny - 1), q]
+    } else if (dx == 0 && dy == -1) {
+      f_stream[, 1:(ny - 1), q] <- f[, 2:ny, q]
+    } else if (dx == 1 && dy == 1) {
+      f_stream[2:nx, 2:ny, q] <- f[1:(nx - 1), 1:(ny - 1), q]
+    } else if (dx == -1 && dy == 1) {
+      f_stream[1:(nx - 1), 2:ny, q] <- f[2:nx, 1:(ny - 1), q]
+    } else if (dx == -1 && dy == -1) {
+      f_stream[1:(nx - 1), 1:(ny - 1), q] <- f[2:nx, 2:ny, q]
+    } else if (dx == 1 && dy == -1) {
+      f_stream[2:nx, 1:(ny - 1), q] <- f[1:(nx - 1), 2:ny, q]
+    }
+  }
+
+  # --- Bounce-back on solid boundaries (cylinder + walls) ---
+  tmp <- f_stream
+  for (q in 1:9) {
+    f_stream[,, q][solid] <- tmp[,, opp[q]][solid]
+  }
+
+  # --- Inlet boundary (left side): impose constant velocity u_in ---
+  y_in <- 2:(ny - 1) # exclude top/bottom walls
+  rho_in <- 1
+  ux_in <- u_in
+  uy_in <- 0
+  u2_in <- ux_in^2 + uy_in^2
+
+  for (q in 1:9) {
+    cu_in <- ex[q] * ux_in + ey[q] * uy_in
+    feq_in <- w[q] * rho_in * (1 + 3 * cu_in + 4.5 * cu_in^2 - 1.5 * u2_in)
+    f_stream[1, y_in, q] <- feq_in
+  }
+
+  # --- Outlet boundary (right side): simple zero-gradient (copy from nx-1) ---
+  f_stream[nx, , ] <- f_stream[nx - 1, , ]
+
+  # Update distributions
+  f <- f_stream
+
+  # --- Record vorticity field for animation ---
+  if (step >= start_save && (step - start_save) %% save_every == 0) {
+    frame_id <- frame_id + 1
+
+    # Macroscopic velocities after streaming & BCs
+    rho <- apply(f, c(1, 2), sum)
+    ux <- (f[,, 2] + f[,, 6] + f[,, 9] - (f[,, 4] + f[,, 7] + f[,, 8])) / rho
+    uy <- (f[,, 3] + f[,, 6] + f[,, 7] - (f[,, 5] + f[,, 8] + f[,, 9])) / rho
+
+    ux[solid] <- 0
+    uy[solid] <- 0
+
+    # Vorticity ω = ∂v/∂x - ∂u/∂y  (2D z-component)
+    dvydx <- matrix(0, nx, ny)
+    dvxdy <- matrix(0, nx, ny)
+
+    dvydx[2:(nx - 1), ] <- (uy[3:nx, ] - uy[1:(nx - 2), ]) / 2
+    dvxdy[, 2:(ny - 1)] <- (ux[, 3:ny] - ux[, 1:(ny - 2)]) / 2
+
+    omega <- dvydx - dvxdy
+
+    # Mask out solid regions
+    omega[solid] <- NA_real_
+
+    omega_frames[,, frame_id] <- omega
+
+    cat("Saved frame", frame_id, "at step", step, "\n")
+  }
+}
+
+## ----------------------------
+## Prepare data for gganimate
+## ----------------------------
+# Symmetric vorticity range for color scale
+omega_max <- max(abs(omega_frames), na.rm = TRUE)
+
+# Build data frame: match flattening order of array (nx, ny, nframes)
+df <- expand.grid(
+  frame = 1:nframes,
+  y = 1:ny,
+  x = 1:nx
+)
+df$omega <- as.vector(omega_frames)
+
+# Physical time index (LB steps) corresponding to each frame (approx.)
+df$time_step <- start_save + (df$frame - 1) * save_every
+
+## ----------------------------
+## Plot and animate
+## ----------------------------
+p <- ggplot(df, aes(x = x, y = y, fill = omega)) +
+  geom_raster(na.rm = TRUE) +
+  scale_fill_gradient2(
+    low = "red", # negative vorticity (clockwise)
+    mid = "white",
+    high = "blue", # positive vorticity (counter-clockwise)
+    midpoint = 0,
+    limits = c(-omega_max, omega_max),
+    na.value = "black",
+    name = "Vorticity"
+  ) +
+  coord_fixed() +
+  scale_y_reverse() + # y=1 at bottom, y=ny at top (more CFD-like)
+  labs(
+    title = "Von Kármán Vortex Street (step = {round(frame_time)})",
+    x = "x",
+    y = "y"
+  ) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text = element_text(color = "black"),
+    panel.grid = element_blank()
+  ) +
+  transition_time(time_step)
+
+# Render to GIF
+animate(
+  p,
+  nframes = nframes,
+  fps = 15,
+  width = 800,
+  height = 400,
+  renderer = gifski_renderer("von_karman_vortex_street.gif")
+)

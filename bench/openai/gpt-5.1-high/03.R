@@ -1,0 +1,84 @@
+# Gray-Scott Reaction–Diffusion: "Coral" Turing Pattern
+# dU/dt = Du * ∇²U - U*V^2 + F*(1 - U)
+# dV/dt = Dv * ∇²V + U*V^2 - (F + k)*V
+
+library(ggplot2)
+
+# -------------------------
+# Parameters and grid
+# -------------------------
+nx <- 100
+ny <- 100
+
+Du <- 0.16
+Dv <- 0.08
+F <- 0.035 # feed rate
+k <- 0.060 # kill rate
+
+dt <- 1.0 # time step (stable for these params on dx=1 grid)
+steps <- 2000 # iterations
+
+# -------------------------
+# Initial conditions
+# -------------------------
+U <- matrix(1, nx, ny) # U = 1 everywhere
+V <- matrix(0, nx, ny) # V = 0 everywhere
+
+# 10x10 noisy patch in the center where V ≈ 1
+patch_size <- 10
+ix <- (nx / 2 - patch_size / 2 + 1):(nx / 2 + patch_size / 2)
+iy <- (ny / 2 - patch_size / 2 + 1):(ny / 2 + patch_size / 2)
+
+set.seed(1)
+nxp <- length(ix)
+nyp <- length(iy)
+V[ix, iy] <- 1 + 0.2 * (matrix(runif(nxp * nyp), nrow = nxp, ncol = nyp) - 0.5)
+
+# -------------------------
+# Time integration (explicit, periodic BCs)
+# -------------------------
+for (t in 1:steps) {
+  # Periodic neighbors for U
+  U_ip1 <- U[c(2:nx, 1), ] # i+1
+  U_im1 <- U[c(nx, 1:(nx - 1)), ] # i-1
+  U_jp1 <- U[, c(2:ny, 1)] # j+1
+  U_jm1 <- U[, c(ny, 1:(ny - 1))] # j-1
+  lapU <- U_ip1 + U_im1 + U_jp1 + U_jm1 - 4 * U
+
+  # Periodic neighbors for V
+  V_ip1 <- V[c(2:nx, 1), ]
+  V_im1 <- V[c(nx, 1:(nx - 1)), ]
+  V_jp1 <- V[, c(2:ny, 1)]
+  V_jm1 <- V[, c(ny, 1:(ny - 1))]
+  lapV <- V_ip1 + V_im1 + V_jp1 + V_jm1 - 4 * V
+
+  # Reaction term
+  UV2 <- U * V^2
+
+  # Update fields
+  U <- U + dt * (Du * lapU - UV2 + F * (1 - U))
+  V <- V + dt * (Dv * lapV + UV2 - (F + k) * V)
+}
+
+# -------------------------
+# Plot V concentration
+# -------------------------
+df <- expand.grid(x = 1:nx, y = 1:ny)
+df$V <- as.vector(V)
+
+ggplot(df, aes(x = x, y = y, fill = V)) +
+  geom_raster() +
+  coord_fixed() +
+  scale_fill_viridis_c() +
+  labs(
+    title = "Gray-Scott Reaction–Diffusion (Coral pattern, V field)",
+    x = NULL,
+    y = NULL,
+    fill = "V"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank()
+  )
