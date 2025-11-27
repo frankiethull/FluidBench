@@ -4,21 +4,21 @@ library(viridis)
 library(dplyr)
 
 # Simulation parameters
-nx <- 100       # Grid size
+nx <- 100 # Grid size
 ny <- 100
-Du <- 0.16     # Diffusion rate for U
-Dv <- 0.08     # Diffusion rate for V
-F <- 0.035     # Feed rate
-k <- 0.060     # Kill rate
-dt <- 1.0      # Time step
-steps <- 2000  # Number of iterations
+Du <- 0.16 # Diffusion rate for U
+Dv <- 0.08 # Diffusion rate for V
+F <- 0.035 # Feed rate
+k <- 0.060 # Kill rate
+dt <- 1.0 # Time step
+steps <- 2000 # Number of iterations
 
 # Initialize grids
 U <- matrix(1, nrow = nx, ncol = ny)
 V <- matrix(0, nrow = nx, ncol = ny)
 
 # Add noise to center (10x10 square)
-noise_center <- 45:54  # Center 10x10 area
+noise_center <- 45:54 # Center 10x10 area
 V[noise_center, noise_center] <- runif(100, 0.25, 0.75)
 
 # Laplacian kernel (5-point stencil)

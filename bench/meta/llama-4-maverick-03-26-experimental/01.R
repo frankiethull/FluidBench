@@ -3,11 +3,11 @@ library(ggplot2)
 library(dplyr)
 
 # Parameters
-c <- 1          # Advection velocity
-L <- 2          # Domain length (x ∈ [0, L])
-T <- 2          # Total simulation time
-Nx <- 200       # Number of spatial grid points
-Nt <- 200       # Number of time steps
+c <- 1 # Advection velocity
+L <- 2 # Domain length (x ∈ [0, L])
+T <- 2 # Total simulation time
+Nx <- 200 # Number of spatial grid points
+Nt <- 200 # Number of time steps
 dx <- L / (Nx - 1) # Spatial step size
 dt <- T / (Nt - 1) # Time step size
 
@@ -32,7 +32,7 @@ for (t_idx in 1:(Nt - 1)) {
   for (x_idx in 1:Nx) {
     # Periodic boundary handling
     x_prev <- ifelse(x_idx == 1, Nx, x_idx - 1) # Wrap around for x=0
-    u_matrix[t_idx + 1, x_idx] <- u_matrix[t_idx, x_idx] - 
+    u_matrix[t_idx + 1, x_idx] <- u_matrix[t_idx, x_idx] -
       (c * dt / dx) * (u_matrix[t_idx, x_idx] - u_matrix[t_idx, x_prev])
   }
 }
@@ -48,7 +48,9 @@ ggplot(df_plot, aes(x = x, y = t, fill = u)) +
   labs(
     title = "Space-Time Heatmap of 1D Advection (Gaussian Pulse)",
     subtitle = "∂u/∂t + c ∂u/∂x = 0, c = 1, Periodic Boundaries",
-    x = "Space (x)", y = "Time (t)", fill = "Amplitude (u)"
+    x = "Space (x)",
+    y = "Time (t)",
+    fill = "Amplitude (u)"
   ) +
   theme_minimal() +
   theme(legend.position = "right")

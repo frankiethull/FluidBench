@@ -5,39 +5,39 @@ library(dplyr)
 library(purrr)
 
 # Simulation parameters
-nx <- 100       # Number of grid points in x
-ny <- 50        # Number of grid points in y (2:1 aspect ratio)
-Lx <- 2.0       # Domain width
-Ly <- 1.0       # Domain height
-dx <- Lx/(nx-1) # Spatial step in x
-dy <- Ly/(ny-1) # Spatial step in y
-dt <- 0.001     # Time step
-Re <- 1000      # Reynolds number
-Pr <- 0.71      # Prandtl number (for air)
-Ra <- 10000     # Rayleigh number
+nx <- 100 # Number of grid points in x
+ny <- 50 # Number of grid points in y (2:1 aspect ratio)
+Lx <- 2.0 # Domain width
+Ly <- 1.0 # Domain height
+dx <- Lx / (nx - 1) # Spatial step in x
+dy <- Ly / (ny - 1) # Spatial step in y
+dt <- 0.001 # Time step
+Re <- 1000 # Reynolds number
+Pr <- 0.71 # Prandtl number (for air)
+Ra <- 10000 # Rayleigh number
 max_steps <- 5000 # Maximum number of time steps
-save_every <- 50  # Save frame every n steps
+save_every <- 50 # Save frame every n steps
 
 # Physical parameters
-alpha <- 1.0    # Thermal expansion coefficient
-g <- 1.0        # Gravitational acceleration
+alpha <- 1.0 # Thermal expansion coefficient
+g <- 1.0 # Gravitational acceleration
 
 # Initialize variables
-u <- matrix(0, nrow = nx, ncol = ny)  # x-velocity
-v <- matrix(0, nrow = nx, ncol = ny)  # y-velocity
-p <- matrix(0, nrow = nx, ncol = ny)  # Pressure
-T <- matrix(0, nrow = nx, ncol = ny)  # Temperature
+u <- matrix(0, nrow = nx, ncol = ny) # x-velocity
+v <- matrix(0, nrow = nx, ncol = ny) # y-velocity
+p <- matrix(0, nrow = nx, ncol = ny) # Pressure
+T <- matrix(0, nrow = nx, ncol = ny) # Temperature
 
 # Initial temperature distribution (linear from bottom to top)
 for (i in 1:nx) {
   for (j in 1:ny) {
-    T[i,j] <- 1 - (j-1)/(ny-1)  # T=1 at bottom, T=0 at top
+    T[i, j] <- 1 - (j - 1) / (ny - 1) # T=1 at bottom, T=0 at top
   }
 }
 
 # Add small perturbations to trigger convection
 set.seed(42)
-T <- T + 0.01 * matrix(rnorm(nx*ny), nrow = nx, ncol = ny)
+T <- T + 0.01 * matrix(rnorm(nx * ny), nrow = nx, ncol = ny)
 
 # Function to solve Poisson equation for pressure (using SOR)
 solve_pressure <- function(u, v, dx, dy, max_iter = 100, omega = 1.5) {
@@ -46,22 +46,26 @@ solve_pressure <- function(u, v, dx, dy, max_iter = 100, omega = 1.5) {
   for (iter in 1:max_iter) {
     p_old <- p
 
-    for (i in 2:(nx-1)) {
-      for (j in 2:(ny-1)) {
-        p[i,j] <- (1-omega) * p_old[i,j] +
-          omega * 0.5 * ((p_old[i+1,j] + p_old[i-1,j])/dx^2 +
-                         (p_old[i,j+1] + p_old[i,j-1])/dy^2 -
-                         (u[i+1,j] - u[i-1,j])/(2*dx) -
-                         (v[i,j+1] - v[i,j-1])/(2*dy)) /
-          (1/dx^2 + 1/dy^2)
+    for (i in 2:(nx - 1)) {
+      for (j in 2:(ny - 1)) {
+        p[i, j] <- (1 - omega) *
+          p_old[i, j] +
+          omega *
+            0.5 *
+            ((p_old[i + 1, j] + p_old[i - 1, j]) /
+              dx^2 +
+              (p_old[i, j + 1] + p_old[i, j - 1]) / dy^2 -
+              (u[i + 1, j] - u[i - 1, j]) / (2 * dx) -
+              (v[i, j + 1] - v[i, j - 1]) / (2 * dy)) /
+            (1 / dx^2 + 1 / dy^2)
       }
     }
 
     # Boundary conditions (Neumann)
-    p[,1] <- p[,2]
-    p[,ny] <- p[,ny-1]
-    p[1,] <- p[2,]
-    p[nx,] <- p[nx-1,]
+    p[, 1] <- p[, 2]
+    p[, ny] <- p[, ny - 1]
+    p[1, ] <- p[2, ]
+    p[nx, ] <- p[nx - 1, ]
 
     # Check convergence
     if (max(abs(p - p_old)) < 1e-6) break
@@ -72,11 +76,11 @@ solve_pressure <- function(u, v, dx, dy, max_iter = 100, omega = 1.5) {
 
 # Function to calculate Laplacian
 laplacian <- function(X, dx, dy) {
-  Xxx <- (X[3:nx,] - 2*X[2:(nx-1),] + X[1:(nx-2),])/dx^2
-  Xyy <- (X[,3:ny] - 2*X[,2:(ny-1)] + X[,1:(ny-2)])/dy^2
+  Xxx <- (X[3:nx, ] - 2 * X[2:(nx - 1), ] + X[1:(nx - 2), ]) / dx^2
+  Xyy <- (X[, 3:ny] - 2 * X[, 2:(ny - 1)] + X[, 1:(ny - 2)]) / dy^2
 
   L <- matrix(0, nrow = nx, ncol = ny)
-  L[2:(nx-1),2:(ny-1)] <- Xxx + Xyy
+  L[2:(nx - 1), 2:(ny - 1)] <- Xxx + Xyy
 
   return(L)
 }
@@ -90,8 +94,10 @@ while (step < max_steps) {
 
   # Save frame periodically
   if (step %% save_every == 0) {
-    df <- expand.grid(x = seq(0, Lx, length.out = nx),
-                      y = seq(0, Ly, length.out = ny))
+    df <- expand.grid(
+      x = seq(0, Lx, length.out = nx),
+      y = seq(0, Ly, length.out = ny)
+    )
     df$T <- as.vector(T)
     df$u <- as.vector(u)
     df$v <- as.vector(v)
@@ -109,60 +115,76 @@ while (step < max_steps) {
   v_new <- v
 
   # Interior points
-  for (i in 2:(nx-1)) {
-    for (j in 2:(ny-1)) {
+  for (i in 2:(nx - 1)) {
+    for (j in 2:(ny - 1)) {
       # Advection terms
-      adv_u <- u[i,j]*(u[i+1,j] - u[i-1,j])/(2*dx) + v[i,j]*(u[i,j+1] - u[i,j-1])/(2*dy)
-      adv_v <- u[i,j]*(v[i+1,j] - v[i-1,j])/(2*dx) + v[i,j]*(v[i,j+1] - v[i,j-1])/(2*dy)
+      adv_u <- u[i, j] *
+        (u[i + 1, j] - u[i - 1, j]) /
+        (2 * dx) +
+        v[i, j] * (u[i, j + 1] - u[i, j - 1]) / (2 * dy)
+      adv_v <- u[i, j] *
+        (v[i + 1, j] - v[i - 1, j]) /
+        (2 * dx) +
+        v[i, j] * (v[i, j + 1] - v[i, j - 1]) / (2 * dy)
 
       # Diffusion terms
-      diff_u <- (u[i+1,j] - 2*u[i,j] + u[i-1,j])/dx^2 + (u[i,j+1] - 2*u[i,j] + u[i,j-1])/dy^2
-      diff_v <- (v[i+1,j] - 2*v[i,j] + v[i-1,j])/dx^2 + (v[i,j+1] - 2*v[i,j] + v[i,j-1])/dy^2
+      diff_u <- (u[i + 1, j] - 2 * u[i, j] + u[i - 1, j]) /
+        dx^2 +
+        (u[i, j + 1] - 2 * u[i, j] + u[i, j - 1]) / dy^2
+      diff_v <- (v[i + 1, j] - 2 * v[i, j] + v[i - 1, j]) /
+        dx^2 +
+        (v[i, j + 1] - 2 * v[i, j] + v[i, j - 1]) / dy^2
 
       # Pressure gradient
-      pres_u <- (p[i+1,j] - p[i-1,j])/(2*dx)
-      pres_v <- (p[i,j+1] - p[i,j-1])/(2*dy)
+      pres_u <- (p[i + 1, j] - p[i - 1, j]) / (2 * dx)
+      pres_v <- (p[i, j + 1] - p[i, j - 1]) / (2 * dy)
 
       # Buoyancy term (Boussinesq approximation)
-      buoyancy <- alpha * g * T[i,j]
+      buoyancy <- alpha * g * T[i, j]
 
       # Update velocities
-      u_new[i,j] <- u[i,j] + dt*(-adv_u + (1/Re)*diff_u - pres_u)
-      v_new[i,j] <- v[i,j] + dt*(-adv_v + (1/Re)*diff_v - pres_v + buoyancy)
+      u_new[i, j] <- u[i, j] + dt * (-adv_u + (1 / Re) * diff_u - pres_u)
+      v_new[i, j] <- v[i, j] +
+        dt * (-adv_v + (1 / Re) * diff_v - pres_v + buoyancy)
     }
   }
 
   # Boundary conditions for velocity (no-slip)
-  u_new[,1] <- 0
-  u_new[,ny] <- 0
-  u_new[1,] <- 0
-  u_new[nx,] <- 0
+  u_new[, 1] <- 0
+  u_new[, ny] <- 0
+  u_new[1, ] <- 0
+  u_new[nx, ] <- 0
 
-  v_new[,1] <- 0
-  v_new[,ny] <- 0
-  v_new[1,] <- 0
-  v_new[nx,] <- 0
+  v_new[, 1] <- 0
+  v_new[, ny] <- 0
+  v_new[1, ] <- 0
+  v_new[nx, ] <- 0
 
   # Update temperature (energy equation)
   T_new <- T
 
-  for (i in 2:(nx-1)) {
-    for (j in 2:(ny-1)) {
+  for (i in 2:(nx - 1)) {
+    for (j in 2:(ny - 1)) {
       # Advection terms
-      adv_T <- u[i,j]*(T[i+1,j] - T[i-1,j])/(2*dx) + v[i,j]*(T[i,j+1] - T[i,j-1])/(2*dy)
+      adv_T <- u[i, j] *
+        (T[i + 1, j] - T[i - 1, j]) /
+        (2 * dx) +
+        v[i, j] * (T[i, j + 1] - T[i, j - 1]) / (2 * dy)
 
       # Diffusion terms
-      diff_T <- (T[i+1,j] - 2*T[i,j] + T[i-1,j])/dx^2 + (T[i,j+1] - 2*T[i,j] + T[i,j-1])/dy^2
+      diff_T <- (T[i + 1, j] - 2 * T[i, j] + T[i - 1, j]) /
+        dx^2 +
+        (T[i, j + 1] - 2 * T[i, j] + T[i, j - 1]) / dy^2
 
-      T_new[i,j] <- T[i,j] + dt*(-adv_T + (1/(Re*Pr))*diff_T)
+      T_new[i, j] <- T[i, j] + dt * (-adv_T + (1 / (Re * Pr)) * diff_T)
     }
   }
 
   # Boundary conditions for temperature (fixed)
-  T_new[,1] <- 1    # Hot bottom wall
-  T_new[,ny] <- 0   # Cold top wall
-  T_new[1,] <- T_new[2,]  # Insulated side walls
-  T_new[nx,] <- T_new[nx-1,]
+  T_new[, 1] <- 1 # Hot bottom wall
+  T_new[, ny] <- 0 # Cold top wall
+  T_new[1, ] <- T_new[2, ] # Insulated side walls
+  T_new[nx, ] <- T_new[nx - 1, ]
 
   # Update variables
   u <- u_new
@@ -180,22 +202,34 @@ final_step <- all_frames %>% filter(step == max(step))
 ggplot(final_step, aes(x = x, y = y)) +
   geom_tile(aes(fill = T), alpha = 0.8) +
   scale_fill_viridis_c(option = "plasma", name = "Temperature") +
-  geom_segment(aes(x = x, y = y, xend = x + 0.05*u, yend = y + 0.05*v),
-               arrow = arrow(length = unit(0.1, "cm")), color = "white", alpha = 0.7) +
+  geom_segment(
+    aes(x = x, y = y, xend = x + 0.05 * u, yend = y + 0.05 * v),
+    arrow = arrow(length = unit(0.1, "cm")),
+    color = "white",
+    alpha = 0.7
+  ) +
   labs(title = "Rayleigh-Bénard Convection (Boussinesq Approximation)") +
   theme_void() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14),
-        legend.position = "right")
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14),
+    legend.position = "right"
+  )
 
 # Interactive version with plotly
 p <- ggplot(final_step, aes(x = x, y = y)) +
   geom_tile(aes(fill = T)) +
   scale_fill_viridis_c(option = "plasma", name = "Temperature") +
-  geom_segment(aes(x = x, y = y, xend = x + 0.05*u, yend = y + 0.05*v),
-               arrow = arrow(length = unit(0.1, "cm")), color = "white", alpha = 0.7) +
+  geom_segment(
+    aes(x = x, y = y, xend = x + 0.05 * u, yend = y + 0.05 * v),
+    arrow = arrow(length = unit(0.1, "cm")),
+    color = "white",
+    alpha = 0.7
+  ) +
   labs(title = "Rayleigh-Bénard Convection (Interactive)") +
   theme_void() +
-  theme(plot.title = element_text(hjust = 0.5, size = 14),
-        legend.position = "right")
+  theme(
+    plot.title = element_text(hjust = 0.5, size = 14),
+    legend.position = "right"
+  )
 
 ggplotly(p, width = 800, height = 600)
