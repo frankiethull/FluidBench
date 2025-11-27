@@ -1,0 +1,103 @@
+# Load necessary libraries
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+# ==========================================
+# 1. PARAMETERS & SETUP
+# ==========================================
+
+# Domain definitions
+L <- 2.0 # Length of domain
+nx <- 200 # Number of spatial grid points
+c <- 1.0 # Wave velocity
+dx <- L / nx # Spatial step size
+x <- seq(0, L - dx, length.out = nx) # Spatial grid (0 to 1.99...)
+
+# Time stepping (CFL Condition for Stability)
+CFL <- 0.9 # Courant number (must be <= 1 for Upwind stability)
+dt <- CFL * dx / c # Time step derived from CFL
+T_max <- 4.0 # Total simulation time (enough to loop twice)
+nt <- ceiling(T_max / dt) # Number of time steps
+
+# Initial Condition: Gaussian Pulse
+# Centered at 0.5, width sigma
+u <- exp(-(x - 0.5)^2 / (2 * 0.1^2))
+
+# ==========================================
+# 2. SIMULATION LOOP (Finite Difference)
+# ==========================================
+
+# Pre-allocate a matrix to store the wave state at every time step.
+# Rows = Time steps, Columns = Spatial position
+u_history <- matrix(0, nrow = nt, ncol = nx)
+
+# Store initial state (technically t=0, but we'll start loop at 1)
+u_current <- u
+
+# Loop over time
+for (n in 1:nt) {
+  # --- Periodic Boundary Conditions ---
+  # To calculate du/dx using backward difference (Upwind), we need u[i-1].
+  # For the first element (i=1), "i-1" wraps around to the last element (nx).
+
+  # Create a shifted vector representing u[i-1]
+  u_left <- c(u_current[nx], u_current[1:(nx - 1)])
+
+  # --- Upwind Scheme Equation ---
+  # u_new = u - (c * dt / dx) * (u - u_left)
+  # Note: (c * dt / dx) is exactly our CFL number
+  u_new <- u_current - CFL * (u_current - u_left)
+
+  # Update current state
+  u_current <- u_new
+
+  # Store result
+  u_history[n, ] <- u_current
+}
+
+# ==========================================
+# 3. DATA RESHAPING (Matrix -> Tidy Data)
+# ==========================================
+
+# Convert matrix to data frame for ggplot
+# 1. Add Time and X coordinates
+df_matrix <- as.data.frame(u_history)
+colnames(df_matrix) <- paste0("x_", 1:nx) # Temporary column names
+df_matrix$time_step <- 1:nt
+df_matrix$time <- df_matrix$time_step * dt
+
+# 2. Pivot Longer (Reshape)
+plot_data <- df_matrix %>%
+  pivot_longer(
+    cols = starts_with("x_"),
+    names_to = "x_index",
+    values_to = "amplitude"
+  ) %>%
+  mutate(
+    # Convert "x_1" string to actual numeric x coordinate
+    x_idx_num = as.numeric(sub("x_", "", x_index)),
+    x_coord = (x_idx_num - 1) * dx
+  )
+
+# ==========================================
+# 4. VISUALIZATION (Space-Time Heatmap)
+# ==========================================
+
+ggplot(plot_data, aes(x = x_coord, y = time, fill = amplitude)) +
+  # geom_raster is much faster than geom_tile for dense grids
+  geom_raster(interpolate = FALSE) +
+  scale_fill_viridis_c(option = "plasma") + # Nice scientific color map
+  labs(
+    title = "Space-Time Heatmap: 1D Linear Advection",
+    subtitle = "Gaussian pulse traveling with Periodic Boundaries",
+    x = "Space (x)",
+    y = "Time (t)",
+    fill = "Amplitude\n(u)"
+  ) +
+  coord_cartesian(expand = FALSE) + # Removes white space padding
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    plot.title = element_text(face = "bold", size = 14)
+  )
