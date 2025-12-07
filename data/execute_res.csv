@@ -1,0 +1,120 @@
+"company","model","script","path","ok","error"
+"alibaba","qwen3-max-preview","01.R","bench/alibaba/qwen3-max-preview/01.R",true,
+"alibaba","qwen3-max-preview","02.R","bench/alibaba/qwen3-max-preview/02.R",false,"Error in f[obstacle, opp_i]: incorrect number of dimensions
+"
+"alibaba","qwen3-max-preview","03.R","bench/alibaba/qwen3-max-preview/03.R",false,"Error in A[i + 1, j]: incorrect number of dimensions
+"
+"alibaba","qwen3-max-preview","04.R","bench/alibaba/qwen3-max-preview/04.R",false,"Error in rayshader::plot_3d(height_matrix = height_matrix, width = Lx, : unused arguments (height_matrix = height_matrix, width = Lx)
+"
+"alibaba","qwen3-max-preview","05.R","bench/alibaba/qwen3-max-preview/05.R",false,"Error in while (residual > tol && iter < max_iter) {: missing value where TRUE/FALSE needed
+"
+"anthropic","claude-opus-4-5-20251101","01.R","bench/anthropic/claude-opus-4-5-20251101/01.R",true,
+"anthropic","claude-opus-4-5-20251101","02.R","bench/anthropic/claude-opus-4-5-20251101/02.R",true,
+"anthropic","claude-opus-4-5-20251101","03.R","bench/anthropic/claude-opus-4-5-20251101/03.R",false,"Error in C[, 2:Ny]: incorrect number of dimensions
+"
+"anthropic","claude-opus-4-5-20251101","04.R","bench/anthropic/claude-opus-4-5-20251101/04.R",true,
+"anthropic","claude-opus-4-5-20251101","05.R","bench/anthropic/claude-opus-4-5-20251101/05.R",false,"Error in T_field[i, j - 1]: incorrect number of dimensions
+"
+"baidu","ernie-5.0-preview-1022","01.R","bench/baidu/ernie-5.0-preview-1022/01.R",false,"[1m[33mError[39m in `mutate()`:[22m
+[1m[22m[36mℹ[39m In argument: `t = time_vector`.
+[1mCaused by error:[22m
+[1m[22m[33m![39m `t` must be size 401 or 1, not 402.
+"
+"baidu","ernie-5.0-preview-1022","02.R","bench/baidu/ernie-5.0-preview-1022/02.R",false,"Error in f_new[i, , ] <- t(apply(f[i, , ], 1, function(row) {: replacement has length zero
+"
+"baidu","ernie-5.0-preview-1022","03.R","bench/baidu/ernie-5.0-preview-1022/03.R",false,"Error in U[, -N]: incorrect number of dimensions
+"
+"baidu","ernie-5.0-preview-1022","04.R","bench/baidu/ernie-5.0-preview-1022/04.R",false,"Error in eval(ei, envir): object 'F_h_half_shifted_left' not found
+"
+"baidu","ernie-5.0-preview-1022","05.R","bench/baidu/ernie-5.0-preview-1022/05.R",false,"Error in source(.x, local = TRUE): bench/baidu/ernie-5.0-preview-1022/05.R:99:68: unexpected ':'
+98:   v_on_p <- 0.5 * (v[,1:(ny-1)] + v[,2:ny])
+99:   du_adv <- -u_on_p * (u[2:nx,] - u[1:(nx-1),]) / dx - v_on_p * (u[:
+                                                                       ^
+"
+"deepseek","deepseek-v3.2-exp-thinking","01.R","bench/deepseek/deepseek-v3.2-exp-thinking/01.R",true,
+"deepseek","deepseek-v3.2-exp-thinking","02.R","bench/deepseek/deepseek-v3.2-exp-thinking/02.R",false,"[1m[33mError[39m in `png_dim()`:[22m
+[1m[22m[33m![39m Provided file (/tmp/RtmpRLahXQ/41632f5f50e6/gganim_plot0001.png) does not exist
+"
+"deepseek","deepseek-v3.2-exp-thinking","03.R","bench/deepseek/deepseek-v3.2-exp-thinking/03.R",true,
+"deepseek","deepseek-v3.2-exp-thinking","03b.R","bench/deepseek/deepseek-v3.2-exp-thinking/03b.R",true,
+"deepseek","deepseek-v3.2-exp-thinking","04.R","bench/deepseek/deepseek-v3.2-exp-thinking/04.R",false,"Error in library(plot3D): there is no package called ‘plot3D’
+"
+"deepseek","deepseek-v3.2-exp-thinking","04b.R","bench/deepseek/deepseek-v3.2-exp-thinking/04b.R",true,
+"deepseek","deepseek-v3.2-exp-thinking","05.R","bench/deepseek/deepseek-v3.2-exp-thinking/05.R",false,"Error in library(deSolve): there is no package called ‘deSolve’
+"
+"deepseek","deepseek-v3.2-exp-thinking","05b.R","bench/deepseek/deepseek-v3.2-exp-thinking/05b.R",false,"Error in if (max(abs(psi - psi_old)) < 1e-06) break: missing value where TRUE/FALSE needed
+"
+"google","gemini-3-pro","01.R","bench/google/gemini-3-pro/01.R",true,
+"google","gemini-3-pro","02.R","bench/google/gemini-3-pro/02.R",false,"[1m[33mError[39m in `png_dim()`:[22m
+[1m[22m[33m![39m Provided file (/tmp/RtmpRLahXQ/41636d544ffd/gganim_plot0001.png) does not exist
+"
+"google","gemini-3-pro","03.R","bench/google/gemini-3-pro/03.R",true,
+"google","gemini-3-pro","04.R","bench/google/gemini-3-pro/04.R",true,
+"google","gemini-3-pro","05.R","bench/google/gemini-3-pro/05.R",false,"Error in shift_U(P) + shift_D(P): non-conformable arrays
+"
+"meta","llama-4-maverick-03-26-experimental","01.R","bench/meta/llama-4-maverick-03-26-experimental/01.R",true,
+"meta","llama-4-maverick-03-26-experimental","02.R","bench/meta/llama-4-maverick-03-26-experimental/02.R",false,"Error in source(.x, local = TRUE): bench/meta/llama-4-maverick-03-26-experimental/02.R:63:7: unexpected ':'
+62:   # Boundary: Inflow (Left) - Fixed velocity u0
+63:   rho[:
+          ^
+"
+"meta","llama-4-maverick-03-26-experimental","03.R","bench/meta/llama-4-maverick-03-26-experimental/03.R",true,
+"meta","llama-4-maverick-03-26-experimental","04.R","bench/meta/llama-4-maverick-03-26-experimental/04.R",false,"Error in library(rrayshader): there is no package called ‘rrayshader’
+"
+"meta","llama-4-maverick-03-26-experimental","05.R","bench/meta/llama-4-maverick-03-26-experimental/05.R",false,"Error in -(u %*% t(grad_x(T, dx))) - (t(v) %*% grad_y(T, dy)): non-conformable arrays
+"
+"mistral","mistral-medium-2508","01.R","bench/mistral/mistral-medium-2508/01.R",true,
+"mistral","mistral-medium-2508","02.R","bench/mistral/mistral-medium-2508/02.R",false,"Error in shift(f[, , k], c(cx[k], cy[k])): could not find function ""shift""
+"
+"mistral","mistral-medium-2508","03.R","bench/mistral/mistral-medium-2508/03.R",false,"Error in X[, -1]: incorrect number of dimensions
+"
+"mistral","mistral-medium-2508","04.R","bench/mistral/mistral-medium-2508/04.R",false,"Error in Fx[i + 1, j]: incorrect number of dimensions
+"
+"mistral","mistral-medium-2508","05.R","bench/mistral/mistral-medium-2508/05.R",false,"Error in if (max(abs(p - p_old)) < 1e-06) break: missing value where TRUE/FALSE needed
+"
+"moonshot","kimi-k2-0905-preview","01.R","bench/moonshot/kimi-k2-0905-preview/01.R",true,
+"moonshot","kimi-k2-0905-preview","02.R","bench/moonshot/kimi-k2-0905-preview/02.R",false,"Error in source(.x, local = TRUE): bench/moonshot/kimi-k2-0905-preview/02.R:107:0: unexpected end of input
+105: 
+106: animate(p, renderer = gifski_renderer(), fps = 12, width = 
+    ^
+"
+"moonshot","kimi-k2-0905-preview","03.R","bench/moonshot/kimi-k2-0905-preview/03.R",true,
+"moonshot","kimi-k2-0905-preview","04.R","bench/moonshot/kimi-k2-0905-preview/04.R",false,"Error in h - dt/dx * (hu_half - rbind(hu_half[N - 1, ], hu_half[-(N - : non-conformable arrays
+"
+"moonshot","kimi-k2-0905-preview","05.R","bench/moonshot/kimi-k2-0905-preview/05.R",false,"Error in del2(f, dx, dy): could not find function ""del2""
+"
+"nous","hermes-4-405B-reasoning","01.R","bench/nous/hermes-4-405B-reasoning/01.R",true,
+"nous","hermes-4-405B-reasoning","02.R","bench/nous/hermes-4-405B-reasoning/02.R",false,"Error in if ((i - cx)^2 + (j - cy)^2 <= radius^2) {: the condition has length > 1
+"
+"nous","hermes-4-405B-reasoning","03.R","bench/nous/hermes-4-405B-reasoning/03.R",false,"Error in X[c(1, 1:nx), c(2:(ny + 1))]: subscript out of bounds
+"
+"nous","hermes-4-405B-reasoning","04.R","bench/nous/hermes-4-405B-reasoning/04.R",false,"Error in lax_wendroff(h, hu, hv, dt, dx, g): dims [product 10000] do not match the length of object [10099]
+"
+"nous","hermes-4-405B-reasoning","05.R","bench/nous/hermes-4-405B-reasoning/05.R",false,"Error: dims [product 800] do not match the length of object [839]
+"
+"openai","gpt-5.1-high","01.R","bench/openai/gpt-5.1-high/01.R",true,
+"openai","gpt-5.1-high","02.R","bench/openai/gpt-5.1-high/02.R",false,"[1m[33mError[39m in `png_dim()`:[22m
+[1m[22m[33m![39m Provided file (/tmp/RtmpRLahXQ/4163735e4a0d/gganim_plot0001.png) does not exist
+"
+"openai","gpt-5.1-high","03.R","bench/openai/gpt-5.1-high/03.R",true,
+"openai","gpt-5.1-high","04.R","bench/openai/gpt-5.1-high/04.R",false,"Error in temp[2:(nrow(temp) - 1), 2:(ncol(temp) - 1)] <- heightmap: number of items to replace is not a multiple of replacement length
+"
+"openai","gpt-5.1-high","05.R","bench/openai/gpt-5.1-high/05.R",false,"Error in if (u[i, j] > 0) {: missing value where TRUE/FALSE needed
+"
+"xai","grok-4.1","01.R","bench/xai/grok-4.1/01.R",false,"Error in shift(u_current, -1, type = ""lag""): could not find function ""shift""
+"
+"xai","grok-4.1","02.R","bench/xai/grok-4.1/02.R",false,"Error in arr[-1, , ]: incorrect number of dimensions
+"
+"xai","grok-4.1","03.R","bench/xai/grok-4.1/03.R",true,
+"xai","grok-4.1","04.R","bench/xai/grok-4.1/04.R",false,"Error in v * 0.5 * (hv[-1, ] + hv[-nrow(hv), ] - hv[1, ] - hv[nrow(hv), : non-conformable arrays
+"
+"xai","grok-4.1","05.R","bench/xai/grok-4.1/05.R",false,"Error in pad[, nx]: subscript out of bounds
+"
+"zai","glm-4.6","01.R","bench/zai/glm-4.6/01.R",true,
+"zai","glm-4.6","02.R","bench/zai/glm-4.6/02.R",false,"Error in f[is_solid, opp[i]]: incorrect number of dimensions
+"
+"zai","glm-4.6","03.R","bench/zai/glm-4.6/03.R",true,
+"zai","glm-4.6","04.R","bench/zai/glm-4.6/04.R",false,"Error in h_old[2:(grid_dim - 1), 2:(grid_dim - 1)] - (dt/dx) * (F_x_half_h[2:(grid_dim - : non-conformable arrays
+"
+"zai","glm-4.6","05.R","bench/zai/glm-4.6/05.R",false,"Error in poisson(-omega, Lx, Nx, Ly, Ny): unused arguments (Lx, Nx, Ly, Ny)
+"
