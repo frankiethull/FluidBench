@@ -47,7 +47,7 @@ execute_res <- executed_df |>
 
 arrow::write_csv_arrow(
   execute_res,
-  paste0(here::here(), "execute_res.csv")
+  paste0(here::here(), "/data/execute_res.csv")
 )
 
 #### round two: solution

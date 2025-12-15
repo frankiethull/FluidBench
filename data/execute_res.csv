@@ -33,20 +33,20 @@
 "
 "deepseek","deepseek-v3.2-exp-thinking","01.R","bench/deepseek/deepseek-v3.2-exp-thinking/01.R",true,
 "deepseek","deepseek-v3.2-exp-thinking","02.R","bench/deepseek/deepseek-v3.2-exp-thinking/02.R",false,"[1m[33mError[39m in `png_dim()`:[22m
-[1m[22m[33m![39m Provided file (/tmp/RtmpRLahXQ/41632f5f50e6/gganim_plot0001.png) does not exist
+[1m[22m[33m![39m Provided file (/tmp/Rtmp7m6zbi/5775657a2d08/gganim_plot0001.png) does not exist
 "
 "deepseek","deepseek-v3.2-exp-thinking","03.R","bench/deepseek/deepseek-v3.2-exp-thinking/03.R",true,
 "deepseek","deepseek-v3.2-exp-thinking","03b.R","bench/deepseek/deepseek-v3.2-exp-thinking/03b.R",true,
-"deepseek","deepseek-v3.2-exp-thinking","04.R","bench/deepseek/deepseek-v3.2-exp-thinking/04.R",false,"Error in library(plot3D): there is no package called ‘plot3D’
+"deepseek","deepseek-v3.2-exp-thinking","04.R","bench/deepseek/deepseek-v3.2-exp-thinking/04.R",false,"Error in F1_x[i + 1, j]: incorrect number of dimensions
 "
 "deepseek","deepseek-v3.2-exp-thinking","04b.R","bench/deepseek/deepseek-v3.2-exp-thinking/04b.R",true,
-"deepseek","deepseek-v3.2-exp-thinking","05.R","bench/deepseek/deepseek-v3.2-exp-thinking/05.R",false,"Error in library(deSolve): there is no package called ‘deSolve’
+"deepseek","deepseek-v3.2-exp-thinking","05.R","bench/deepseek/deepseek-v3.2-exp-thinking/05.R",false,"Error: Must supply text to annotation
 "
 "deepseek","deepseek-v3.2-exp-thinking","05b.R","bench/deepseek/deepseek-v3.2-exp-thinking/05b.R",false,"Error in if (max(abs(psi - psi_old)) < 1e-06) break: missing value where TRUE/FALSE needed
 "
 "google","gemini-3-pro","01.R","bench/google/gemini-3-pro/01.R",true,
 "google","gemini-3-pro","02.R","bench/google/gemini-3-pro/02.R",false,"[1m[33mError[39m in `png_dim()`:[22m
-[1m[22m[33m![39m Provided file (/tmp/RtmpRLahXQ/41636d544ffd/gganim_plot0001.png) does not exist
+[1m[22m[33m![39m Provided file (/tmp/Rtmp7m6zbi/57751ad6d7c5/gganim_plot0001.png) does not exist
 "
 "google","gemini-3-pro","03.R","bench/google/gemini-3-pro/03.R",true,
 "google","gemini-3-pro","04.R","bench/google/gemini-3-pro/04.R",true,
@@ -94,7 +94,7 @@
 "
 "openai","gpt-5.1-high","01.R","bench/openai/gpt-5.1-high/01.R",true,
 "openai","gpt-5.1-high","02.R","bench/openai/gpt-5.1-high/02.R",false,"[1m[33mError[39m in `png_dim()`:[22m
-[1m[22m[33m![39m Provided file (/tmp/RtmpRLahXQ/4163735e4a0d/gganim_plot0001.png) does not exist
+[1m[22m[33m![39m Provided file (/tmp/Rtmp7m6zbi/57753f3e2156/gganim_plot0001.png) does not exist
 "
 "openai","gpt-5.1-high","03.R","bench/openai/gpt-5.1-high/03.R",true,
 "openai","gpt-5.1-high","04.R","bench/openai/gpt-5.1-high/04.R",false,"Error in temp[2:(nrow(temp) - 1), 2:(ncol(temp) - 1)] <- heightmap: number of items to replace is not a multiple of replacement length
